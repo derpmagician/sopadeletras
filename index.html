@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f3ed">
+  <title>Cuadrícula — Creador de pasatiempos</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="vendor/pdfmake/pdfmake.min.js"></script>
+  <script defer src="vendor/pdfmake/vfs_fonts.js"></script>
+  <script defer src="vendor/pdfmake/roboto-coverage.js"></script>
+  <script defer src="engine.js"></script>
+  <script defer src="export.js"></script>
+  <script defer src="interactive.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Cuadrícula, inicio"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>cuadrícula<span class="brand-dot">.</span></span></a>
+    <div class="topbar-caption"><span class="caption-dot"></span> TU TALLER DE PASATIEMPOS</div>
+    <div class="top-actions">
+      <button class="button button-quiet" id="open-project" type="button">Abrir proyecto</button>
+      <input id="project-file" type="file" accept=".json,application/json" hidden>
+      <button class="button button-quiet" id="save-project" type="button">Guardar <span class="desktop-only">proyecto</span></button>
+      <button class="button button-dark" id="print" type="button"><span aria-hidden="true">↓</span> Exportar PDF</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="editor" aria-label="Editor del pasatiempo">
+      <div class="editor-heading">
+        <div><p class="eyebrow">CREA ALGO GENIAL</p><h1>Tu próximo<br><em>pasatiempo.</em></h1><p class="intro">Una idea, unas palabras y todo listo para compartir.</p></div>
+        <div class="heading-art" aria-hidden="true"><span>A</span><span>B</span><span>C</span><span></span><span>D</span><span></span><span>E</span><span>F</span><span>G</span></div>
+      </div>
+
+      <div class="editor-tabs" role="tablist" aria-label="Opciones del pasatiempo">
+        <button id="tab-content" class="editor-tab" type="button" role="tab" aria-selected="true" aria-controls="panel-content">Contenido</button>
+        <button id="tab-design" class="editor-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-design" tabindex="-1">Diseño</button>
+        <button id="tab-export" class="editor-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-export" tabindex="-1">Exportar</button>
+      </div>
+      <div id="panel-content" role="tabpanel" aria-labelledby="tab-content" tabindex="0">
+      <section class="editor-section">
+        <div class="section-title"><span class="step">01</span><div><h2>Elige tu formato</h2><p>¿Qué vamos a crear hoy?</p></div></div>
+        <div class="type-picker" role="group" aria-label="Tipo de pasatiempo">
+          <button type="button" class="type-option selected" data-type="crossword" aria-pressed="true"><span class="type-icon crossword-icon" aria-hidden="true">▦</span><span><strong>Crucigrama</strong><small>Palabras que se cruzan</small></span><span class="option-check" aria-hidden="true">✓</span></button>
+          <button type="button" class="type-option" data-type="wordsearch" aria-pressed="false"><span class="type-icon search-icon" aria-hidden="true">▧</span><span><strong>Sopa de letras</strong><small>Palabras escondidas</small></span><span class="option-check" aria-hidden="true">✓</span></button>
+        </div>
+      </section>
+
+      <section class="editor-section">
+        <div class="section-title"><span class="step">02</span><div><h2>Cuéntanos los detalles</h2><p>Hazlo tuyo, palabra a palabra.</p></div></div>
+        <div id="batch-controls" hidden>
+          <label class="field-label" for="batch-select">Sopa de la colección</label>
+          <select id="batch-select"></select>
+          <p class="field-help">Los cambios de título, descripción y palabras se conservan al cambiar de sopa. El diseño, las direcciones, el tamaño y la página son comunes.</p>
+        </div>
+        <label class="field-label" for="title">Título del pasatiempo</label>
+        <input id="title" maxlength="100" type="text" value="Un mundo de palabras">
+        <label class="field-label" for="secondary-title">Título secundario <span>OPCIONAL</span></label>
+        <input id="secondary-title" maxlength="100" type="text">
+        <label class="field-label" for="description">Descripción <span>OPCIONAL</span></label>
+        <input id="description" maxlength="180" type="text" value="¡Pon a prueba tu ingenio!">
+        <div class="words-heading"><label class="field-label" for="entries">Tus palabras y pistas</label><span id="word-count">0 PALABRAS</span></div>
+        <p class="field-help" id="entry-help">Una por línea, separada de su pista por una barra vertical <code>|</code>.</p>
+        <p class="field-help">Se unen las letras y se omiten espacios y signos. Las sopas admiten también números.</p>
+        <div class="import-actions">
+          <button id="import-file-button" class="button button-quiet" type="button">Importar archivo</button>
+          <input id="import-file" type="file" accept=".txt,text/plain" hidden>
+          <button id="import-paste-button" class="button button-quiet" type="button">Pegar lista</button>
+        </div>
+        <div class="numbered-editor"><div class="line-numbers" aria-hidden="true"><div id="line-numbers"></div></div><textarea id="entries" spellcheck="false" wrap="off" rows="9" aria-describedby="entry-help">GATO | Animal doméstico que maúlla
+LUNA | Satélite natural de la Tierra
+SOL | Estrella que ilumina nuestro día
+MAR | Gran extensión de agua salada
+RÍO | Corriente natural de agua
+ÁRBOL | Planta con tronco y ramas
+FLOR | Parte colorida de una planta
+NUBE | Conjunto de gotas en el cielo</textarea></div>
+        <div class="hint"><span aria-hidden="true">✦</span><span>Un consejo: las palabras que comparten letras se cruzan mejor.</span></div>
+        <fieldset class="direction-settings">
+          <legend class="field-label">Direcciones permitidas</legend>
+          <p class="field-help">Elige al menos una dirección. Las flechas indican cómo se leen las palabras.</p>
+          <div id="directions" class="direction-options"></div>
+        </fieldset>
+        <div class="search-settings" id="search-settings" hidden>
+          <label class="field-label" for="size">Tamaño de la cuadrícula</label>
+          <select id="size"><option value="12">12 × 12</option><option value="15" selected>15 × 15</option><option value="18">18 × 18</option><option value="20">20 × 20</option><option value="24">24 × 24</option></select>
+        </div>
+      </section>
+      <button class="button generate" id="generate" type="button"><span>Generar pasatiempo</span><span aria-hidden="true">↗</span></button>
+      <p class="generate-note">Puedes generar una nueva distribución cuando quieras.</p>
+      </div>
+      <section id="panel-design" class="editor-section design-section" role="tabpanel" aria-labelledby="tab-design" tabindex="0" hidden>
+        <div class="section-title"><span class="step">03</span><div><h2 id="design-heading">Diseño del pasatiempo</h2><p>Personaliza los textos y la cuadrícula.</p></div></div>
+        <label class="field-label" for="design-target">Formato del texto</label>
+        <select id="design-target">
+          <option value="all">Todos los elementos</option>
+          <option value="title">Título principal</option>
+          <option value="secondary">Título secundario</option>
+          <option value="description">Descripción</option>
+          <option value="clues">Pistas y encabezados</option>
+          <option value="words">Lista de palabras y encabezado</option>
+          <option value="grid">Letras de la cuadrícula</option>
+        </select>
+        <label id="design-override-row" class="design-override" hidden><input id="design-override" type="checkbox"> Personalizar este elemento</label>
+        <div class="design-fields">
+          <div><label class="field-label" for="design-font">Fuente</label><select id="design-font"><option value="original">Original</option><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="Verdana">Verdana</option><option value="Trebuchet MS">Trebuchet MS</option><option value="Courier New">Courier New</option></select></div>
+          <div><label class="field-label" for="design-size">Tamaño del texto</label><select id="design-size"><option value="0">Original</option><option value="8">8 px</option><option value="10">10 px</option><option value="12">12 px</option><option value="14">14 px</option><option value="16">16 px</option><option value="18">18 px</option><option value="20">20 px</option><option value="24">24 px</option></select></div>
+        </div>
+        <fieldset class="design-styles"><legend class="field-label">Estilo</legend>
+          <div class="design-style-options"><label><input id="design-bold" type="checkbox"> <strong>Negrita</strong></label><label><input id="design-italic" type="checkbox"> <em>Cursiva</em></label><label><input id="design-underline" type="checkbox"> <span>Subrayado</span></label></div>
+        </fieldset>
+        <div class="design-color-row"><label for="design-use-color"><input id="design-use-color" type="checkbox"> Color personalizado</label><input id="design-color" type="color" value="#292e27" aria-label="Color del texto" disabled></div>
+        <p class="field-help">Los elementos sin formato propio usan el formato general. El tamaño de los títulos es proporcional y las letras se ajustan a sus casillas.</p>
+        <details class="design-details">
+        <summary>Alineación de títulos</summary>
+        <div class="design-fields design-alignments">
+          <div><label class="field-label" for="title-alignment">Alineación del título</label><select id="title-alignment"><option value="left">Izquierda</option><option value="center" selected>Centro</option><option value="right">Derecha</option></select></div>
+          <div><label class="field-label" for="secondary-alignment">Alineación del título secundario</label><select id="secondary-alignment"><option value="left">Izquierda</option><option value="center" selected>Centro</option><option value="right">Derecha</option></select></div>
+        </div>
+        </details>
+        <details class="design-details">
+          <summary>Fondo y borde de la cuadrícula</summary>
+          <label class="field-label" for="backdrop-mode">Tipo de fondo</label>
+          <select id="backdrop-mode"><option value="none">Sin fondo</option><option value="solid">Color sólido</option><option value="image">Imagen</option></select>
+          <div id="backdrop-solid-row" class="design-color-row" hidden><label for="backdrop-color">Color de fondo</label><input id="backdrop-color" type="color" value="#ffffff"></div>
+          <div id="backdrop-image-row" hidden><label class="field-label" for="backdrop-image">Imagen de fondo</label><input id="backdrop-image" type="file" accept="image/png,image/jpeg,image/webp"><p class="field-help" id="backdrop-image-status">PNG, JPEG o WebP; máximo 2 MB.</p></div>
+          <div class="design-color-row"><label for="backdrop-use-border"><input id="backdrop-use-border" type="checkbox"> Borde de la cuadrícula</label><input id="backdrop-border-color" type="color" value="#292e27" aria-label="Color del borde" disabled></div>
+        </details>
+        <button id="design-reset" type="button" class="button button-quiet design-reset">Restablecer diseño</button>
+      </section>
+      <section id="panel-export" class="editor-section" role="tabpanel" aria-labelledby="tab-export" tabindex="0" hidden>
+        <div class="section-title"><span class="step">04</span><div><h2>Exportación y página</h2><p>Prepara tu pasatiempo para compartirlo.</p></div></div>
+        <label class="field-label" for="page-orientation">Orientación A4</label>
+        <select id="page-orientation"><option value="portrait">Vertical</option><option value="landscape">Horizontal</option></select>
+        <fieldset class="page-margins"><legend class="field-label">Márgenes en milímetros (5–40)</legend>
+          <div class="margin-fields">
+            <label>Superior<input id="margin-top" type="number" min="5" max="40" step="1" value="12"></label>
+            <label>Derecho<input id="margin-right" type="number" min="5" max="40" step="1" value="12"></label>
+            <label>Inferior<input id="margin-bottom" type="number" min="5" max="40" step="1" value="12"></label>
+            <label>Izquierdo<input id="margin-left" type="number" min="5" max="40" step="1" value="12"></label>
+          </div>
+        </fieldset>
+        <label class="export-solution"><input id="export-solution" type="checkbox" checked> Incluir solución en PDF, imagen y texto</label>
+        <div class="export-actions">
+          <button id="export-image" class="button button-quiet" type="button">Descargar imagen PNG</button>
+          <button id="export-text" class="button button-quiet" type="button">Descargar texto</button>
+          <button id="export-web" class="button button-quiet" type="button">Descargar web interactiva</button>
+          <button id="export-batch-pdf" class="button button-quiet" type="button" hidden>Descargar PDF de todas las sopas</button>
+          <button id="browser-print" class="button button-quiet" type="button">Imprimir desde el navegador</button>
+        </div>
+        <p class="field-help">La web interactiva incluye pistas, comprobación y opción de mostrar la solución. Para varios PDF, permite las descargas múltiples si el navegador lo solicita.</p>
+      </section>
+      <div id="message" class="message" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="preview" aria-label="Vista previa del pasatiempo">
+      <div class="preview-toolbar"><div><p class="eyebrow">TU CREACIÓN</p><h2>Vista previa <span class="preview-spark">✳</span></h2></div><div class="preview-controls"><span class="preview-label">VISTA</span><button type="button" class="view-toggle active" id="show-puzzle" aria-pressed="true">Pasatiempo</button><button type="button" class="view-toggle" id="show-solution" aria-pressed="false">Solución</button></div></div>
+      <div class="paper-wrap">
+        <article class="paper" id="paper">
+          <div class="paper-top"><span>CUADRÍCULA <b>✳</b></span><span id="paper-type">CRUCIGRAMA</span></div>
+          <h2 id="paper-title"></h2>
+          <p id="paper-secondary-title" class="paper-secondary-title"></p>
+          <p id="paper-description" class="paper-description"></p>
+          <div class="paper-rule"><span></span><b>✦</b><span></span></div>
+          <div class="puzzle-grid-wrap"><div id="puzzle-grid" class="puzzle-grid" role="img"></div></div>
+          <div id="paper-content" class="paper-content"></div>
+          <footer class="paper-footer"><span>HECHO PARA PENSAR, CREADO PARA DISFRUTAR.</span><span>✳</span></footer>
+        </article>
+      </div>
+      <div class="preview-bottom"><span>Configura la solución y la página en Exportar</span><span id="page-caption">FORMATO A4 VERTICAL <b>✳</b></span></div>
+    </section>
+  </main>
+  <div id="print-root" aria-hidden="true"></div>
+  <dialog id="import-dialog" aria-labelledby="import-heading">
+    <form method="dialog">
+      <h2 id="import-heading">Importar lista</h2>
+      <p class="field-help">Una palabra por línea; para crucigramas usa <code>palabra | pista</code>. Para varias sopas, separa cada lista con un título como <code>## 1. TÍTULO</code>.</p>
+      <label id="paste-label" class="field-label" for="import-text">Pega aquí la lista</label>
+      <textarea id="import-text" rows="7"></textarea>
+      <fieldset class="import-choice"><legend class="field-label">¿Qué hacer con la lista actual?</legend>
+        <label><input type="radio" name="import-mode" value="append"> Añadir a la lista</label>
+        <label><input type="radio" name="import-mode" value="replace"> Reemplazar la lista</label>
+        <label><input type="radio" name="import-mode" value="batch"> Importar varias sopas (reemplaza el editor y la colección actual)</label>
+      </fieldset>
+      <p id="import-error" class="message error" role="alert"></p>
+      <div class="dialog-actions"><button class="button button-quiet" value="cancel" type="submit">Cancelar</button><button id="import-apply" class="button button-dark" type="button">Importar</button></div>
+    </form>
+  </dialog>
+</body>
+</html>
