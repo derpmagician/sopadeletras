@@ -137,3 +137,46 @@ test("rechaza configuraciones de dirección vacías, repetidas o desconocidas", 
     assert.throws(() => engine.wordsearch(entries, 12, ids), /dirección válida/);
   }
 });
+
+test("genera sopas rectangulares y respeta los límites de cada dirección", () => {
+  const entries = engine.parseEntries("ABCDEFG", "wordsearch").entries;
+  for (const [width, height, direction] of [[7, 3, "across-reverse"], [3, 7, "down-reverse"], [7, 7, "diagonal-up"]]) {
+    const result = engine.wordsearch(entries, width, [direction], height);
+    assert.equal(result.grid.length, height);
+    assert.ok(result.grid.every(row => row.length === width));
+    const p = result.placed[0];
+    assert.equal([...p.word].map((_, i) => result.grid[p.row + p.dr * i][p.col + p.dc * i]).join(""), p.word);
+  }
+  assert.equal(engine.wordsearch(entries, 3, ["across"], 7).omitted.length, 1);
+});
+
+test("genera crucigramas con dimensiones fijas, incluso en los bordes y en sentido inverso", () => {
+  const entries = engine.parseEntries("AB | Pista", "crossword").entries;
+  for (const direction of engine.directions) {
+    const result = engine.crossword(entries, [direction.id], { width: 2, height: 2 });
+    assert.equal(result.grid.length, 2);
+    assert.ok(result.grid.every(row => row.length === 2));
+    const p = result.placed[0];
+    assert.equal([...p.word].map((_, i) => result.grid[p.row + p.dr * i][p.col + p.dc * i]).join(""), "AB");
+  }
+  const impossible = engine.crossword(engine.parseEntries("LARGO | Pista", "crossword").entries, ["across"], { width: 2, height: 8 });
+  assert.equal(impossible.placed.length, 0);
+  assert.equal(impossible.omitted.length, 1);
+  const entries2 = engine.parseEntries("GATO | A\nLUNA | B\nSOL | C\nMAR | D", "crossword").entries;
+  for (const [width, height] of [[4, 8], [8, 4]]) {
+    const result = engine.crossword(entries2, engine.directions.map(direction => direction.id), { width, height });
+    assert.equal(result.grid.length, height);
+    assert.ok(result.grid.every(row => row.length === width));
+    for (const p of result.placed) {
+      assert.equal([...p.word].map((_, i) => result.grid[p.row + p.dr * i][p.col + p.dc * i]).join(""), p.word);
+    }
+  }
+});
+
+test("rechaza dimensiones inválidas", () => {
+  const entries = engine.parseEntries("SOL | Pista", "crossword").entries;
+  for (const dimension of [0, 1, 51, 2.5, NaN]) {
+    assert.throws(() => engine.wordsearch(entries, dimension), /enteros entre 2 y 50/);
+    assert.throws(() => engine.crossword(entries, ["across"], { width: 5, height: dimension }), /enteros entre 2 y 50/);
+  }
+});

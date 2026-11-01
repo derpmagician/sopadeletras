@@ -127,7 +127,7 @@
     function grid(solution) {
       const rows = result.grid.length, cols = result.grid[0].length;
       const gridHeight = height - top - bottom - 30;
-      const cell = Math.min(28, available / cols, gridHeight / rows);
+      const cell = Math.min(design.cellSize || 28, available / cols, gridHeight / rows);
       if (cell < 5) throw new Error("La cuadrícula no cabe en la página con los márgenes seleccionados.");
       const w = cell * cols, h = cell * rows;
       ensure(h + 24);

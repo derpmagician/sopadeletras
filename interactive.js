@@ -20,6 +20,7 @@
     }
     let start = null;
     grid.style.setProperty("--columns", puzzle.grid[0].length);
+    if (puzzle.design?.cellSize) grid.style.width = `min(100%, ${puzzle.grid[0].length * puzzle.design.cellSize}px)`;
     const starts = new Map(puzzle.placed.map(p => [`${p.row},${p.col}`, p.number]));
     function say(text) { status.textContent = text; }
     function markWord(p, index) {

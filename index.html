@@ -82,9 +82,13 @@ NUBE | Conjunto de gotas en el cielo</textarea></div>
           <p class="field-help">Elige al menos una dirección. Las flechas indican cómo se leen las palabras.</p>
           <div id="directions" class="direction-options"></div>
         </fieldset>
-        <div class="search-settings" id="search-settings" hidden>
-          <label class="field-label" for="size">Tamaño de la cuadrícula</label>
-          <select id="size"><option value="12">12 × 12</option><option value="15" selected>15 × 15</option><option value="18">18 × 18</option><option value="20">20 × 20</option><option value="24">24 × 24</option></select>
+        <div class="grid-settings">
+          <label id="fixed-grid-row" class="design-override"><input id="fixed-grid" type="checkbox"> Fijar dimensiones del crucigrama</label>
+          <div class="design-fields">
+            <div><label class="field-label" for="grid-width">Ancho (columnas)</label><input id="grid-width" type="number" min="2" max="50" step="1" value="15"></div>
+            <div><label class="field-label" for="grid-height">Alto (filas)</label><input id="grid-height" type="number" min="2" max="50" step="1" value="15"></div>
+          </div>
+          <p class="field-help">Entre 2 y 50 casillas por lado. Si el crucigrama no tiene dimensiones fijas, se ajusta automáticamente.</p>
         </div>
       </section>
       <button class="button generate" id="generate" type="button"><span>Generar pasatiempo</span><span aria-hidden="true">↗</span></button>
@@ -92,6 +96,11 @@ NUBE | Conjunto de gotas en el cielo</textarea></div>
       </div>
       <section id="panel-design" class="editor-section design-section" role="tabpanel" aria-labelledby="tab-design" tabindex="0" hidden>
         <div class="section-title"><span class="step">03</span><div><h2 id="design-heading">Diseño del pasatiempo</h2><p>Personaliza los textos y la cuadrícula.</p></div></div>
+        <label class="field-label" for="cell-size">Tamaño de las casillas</label>
+        <select id="cell-size">
+          <option value="0">Automático</option><option value="12">12 px</option><option value="16">16 px</option><option value="20">20 px</option><option value="24">24 px</option><option value="28">28 px</option><option value="30">30 px</option><option value="36">36 px</option><option value="40">40 px</option><option value="48">48 px</option><option value="60">60 px</option>
+        </select>
+        <p class="field-help">El tamaño puede reducirse para ajustarse al espacio disponible o a la página.</p>
         <label class="field-label" for="design-target">Formato del texto</label>
         <select id="design-target">
           <option value="all">Todos los elementos</option>

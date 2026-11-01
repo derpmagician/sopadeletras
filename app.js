@@ -4,7 +4,8 @@
   const engine = window.PuzzleEngine;
   const exporter = window.PuzzleExport;
   const elements = {
-    title: $("title"), secondaryTitle: $("secondary-title"), description: $("description"), entries: $("entries"), size: $("size"),
+    title: $("title"), secondaryTitle: $("secondary-title"), description: $("description"), entries: $("entries"),
+    width: $("grid-width"), height: $("grid-height"), fixedGrid: $("fixed-grid"),
     grid: $("puzzle-grid"), content: $("paper-content"), message: $("message")
   };
   let type = "crossword";
@@ -19,6 +20,7 @@
   const defaultDesign = Object.freeze({ font: "original", size: 0, bold: false, italic: false, underline: false, useColor: false, color: "#292e27" });
   const fonts = ["original", "Arial", "Georgia", "Verdana", "Trebuchet MS", "Courier New"];
   const sizes = [0, 8, 10, 12, 14, 16, 18, 20, 24];
+  const cellSizes = [0, 12, 16, 20, 24, 28, 30, 36, 40, 48, 60];
   const designTargets = ["title", "secondary", "description", "clues", "words", "grid"];
   const selectors = {
     title: "#paper-title", secondary: "#paper-secondary-title", description: "#paper-description",
@@ -27,7 +29,7 @@
   };
   const maxImageBytes = 2 * 1024 * 1024;
   const defaultBackdrop = Object.freeze({ mode: "none", color: "#ffffff", image: "", useBorder: false, borderColor: "#292e27" });
-  let designState = { ...defaultDesign, groups: {}, titleAlignment: "center", secondaryAlignment: "center", backdrop: { ...defaultBackdrop } };
+  let designState = { ...defaultDesign, cellSize: 0, groups: {}, titleAlignment: "center", secondaryAlignment: "center", backdrop: { ...defaultBackdrop } };
   let imageRequest = 0;
   let imageLoading = false;
 
@@ -77,6 +79,7 @@
   }
   function validDesign(design) {
     if (!validTextStyle(design)) return false;
+    if (design.cellSize !== undefined && !cellSizes.includes(design.cellSize)) return false;
     if (design.groups !== undefined && (!design.groups || typeof design.groups !== "object" || Array.isArray(design.groups) ||
       Object.entries(design.groups).some(([key, value]) => !designTargets.includes(key) || !validTextStyle(value)))) return false;
     if (design.titleAlignment !== undefined && !["left", "center", "right"].includes(design.titleAlignment)) return false;
@@ -96,6 +99,7 @@
     const target = $("design-target").value;
     const override = target !== "all" && Object.hasOwn(designState.groups, target);
     const style = override ? designState.groups[target] : designState;
+    $("cell-size").value = String(designState.cellSize);
     $("design-override-row").hidden = target === "all";
     $("design-override").checked = override;
     $("design-font").value = style.font;
@@ -134,6 +138,8 @@
     $("paper-title").style.textAlign = designState.titleAlignment;
     $("paper-secondary-title").style.textAlign = designState.secondaryAlignment;
     const backdrop = designState.backdrop;
+    elements.grid.style.setProperty("--cell-size", `${designState.cellSize || 30}px`);
+    elements.grid.style.setProperty("--print-cell-size", `${designState.cellSize || 24}px`);
     elements.grid.style.backgroundColor = backdrop.mode === "solid" ? backdrop.color : "";
     elements.grid.style.backgroundImage = backdrop.mode === "image" && backdrop.image ? `url("${backdrop.image}")` : "";
     elements.grid.style.outline = backdrop.useBorder ? `1px solid ${backdrop.borderColor}` : "";
@@ -145,7 +151,7 @@
     imageLoading = false;
     designState = {
       font: design.font, size: design.size, bold: design.bold, italic: design.italic, underline: design.underline,
-      useColor: design.useColor, color: design.color, groups: structuredClone(design.groups ?? {}),
+      useColor: design.useColor, color: design.color, cellSize: design.cellSize ?? 0, groups: structuredClone(design.groups ?? {}),
       titleAlignment: design.titleAlignment ?? "center", secondaryAlignment: design.secondaryAlignment ?? "center",
       backdrop: { ...(design.backdrop ?? defaultBackdrop) }
     };
@@ -201,7 +207,8 @@
       button.classList.toggle("selected", selected);
       button.setAttribute("aria-pressed", String(selected));
     });
-    $("search-settings").hidden = type !== "wordsearch";
+    $("fixed-grid-row").hidden = type !== "crossword";
+    elements.width.disabled = elements.height.disabled = type === "crossword" && !elements.fixedGrid.checked;
     $("entry-help").textContent = type === "crossword"
       ? "Una por línea, separada de su pista por una barra vertical |."
       : "Una palabra por línea. También puedes conservar las pistas después de |.";
@@ -250,12 +257,18 @@
   function generate() {
     const { entries, errors } = engine.parseEntries(elements.entries.value, type);
     if (!selections[type].length) errors.push("Selecciona al menos una dirección.");
-    if (type === "wordsearch") {
-      const tooLong = entries.filter(entry => entry.word.length > Number(elements.size.value));
-      if (tooLong.length) errors.push(`No caben en la cuadrícula: ${tooLong.map(entry => entry.original).join(", ")}. Elige un tamaño mayor.`);
+    const dimensions = readDimensions();
+    const fixed = type === "wordsearch" || elements.fixedGrid.checked;
+    if (fixed && !engine.validDimensions(dimensions.width, dimensions.height)) {
+      errors.push("El ancho y el alto deben ser números enteros entre 2 y 50.");
+    } else if (fixed && selections[type].length) {
+      const tooLong = entries.filter(entry => !engine.directions.some(direction =>
+        selections[type].includes(direction.id) && engine.fits(entry.word, direction, dimensions.width, dimensions.height)));
+      if (tooLong.length) errors.push(`No caben en las direcciones seleccionadas: ${tooLong.map(entry => entry.original).join(", ")}. Cambia las dimensiones o las direcciones.`);
     }
     if (errors.length) { showMessage(errors.join(" "), "error"); return false; }
-    result = type === "crossword" ? engine.crossword(entries, selections[type]) : engine.wordsearch(entries, Number(elements.size.value), selections[type]);
+    result = type === "crossword" ? engine.crossword(entries, selections[type], fixed ? dimensions : undefined) :
+      engine.wordsearch(entries, dimensions.width, selections[type], dimensions.height);
     result.title = elements.title.value.trim() || "Pasatiempo";
     result.secondaryTitle = elements.secondaryTitle.value.trim();
     result.description = elements.description.value.trim();
@@ -359,8 +372,11 @@
     if (designState.backdrop.mode === "image" && !designState.backdrop.image) { showMessage("Selecciona una imagen de fondo antes de guardar.", "error"); return; }
     const page = readPage();
     if (!exporter.validPage(page)) { showMessage("Los márgenes deben ser números enteros entre 5 y 40 mm.", "error"); return; }
+    const dimensions = readDimensions();
+    if (!engine.validDimensions(dimensions.width, dimensions.height)) { showMessage("El ancho y el alto deben ser números enteros entre 2 y 50.", "error"); return; }
     syncBatch();
-    const project = { format: "cuadricula", version: 1, type, title: elements.title.value, secondaryTitle: elements.secondaryTitle.value, description: elements.description.value, entries: elements.entries.value, size: Number(elements.size.value), printSolution: $("export-solution").checked, directions: selections, design: readDesign(), page };
+    const legacySize = dimensions.width === dimensions.height && [12, 15, 18, 20, 24].includes(dimensions.width) ? dimensions.width : 15;
+    const project = { format: "cuadricula", version: 1, type, title: elements.title.value, secondaryTitle: elements.secondaryTitle.value, description: elements.description.value, entries: elements.entries.value, size: legacySize, grid: { ...dimensions, fixedCrossword: elements.fixedGrid.checked }, printSolution: $("export-solution").checked, directions: selections, design: readDesign(), page };
     if (batch) project.batch = structuredClone(batch);
     const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
     if (blob.size > 3 * 1024 * 1024) { showMessage("El proyecto supera el límite de 3 MB. Reduce la colección o la imagen de fondo.", "error"); return; }
@@ -378,6 +394,7 @@
           typeof project.description !== "string" || project.description.length > 180 ||
           typeof project.entries !== "string" || project.entries.length > 20000 ||
           ![12, 15, 18, 20, 24].includes(project.size) ||
+          (project.grid !== undefined && (!project.grid || !engine.validDimensions(project.grid.width, project.grid.height) || typeof project.grid.fixedCrossword !== "boolean")) ||
           typeof project.printSolution !== "boolean" ||
           (project.batch !== undefined && (!project.batch || !Array.isArray(project.batch.items) ||
             project.batch.items.length < 1 || project.batch.items.length > 100 ||
@@ -400,7 +417,9 @@
       elements.secondaryTitle.value = project.secondaryTitle ?? "";
       elements.description.value = project.description;
       elements.entries.value = project.entries;
-      elements.size.value = String(project.size);
+      elements.width.value = String(project.grid?.width ?? project.size);
+      elements.height.value = String(project.grid?.height ?? project.size);
+      elements.fixedGrid.checked = project.grid?.fixedCrossword ?? false;
       $("export-solution").checked = project.printSolution;
       setPage(project.page ?? exporter.defaultPage);
       setDesign(project.design ?? defaultDesign);
@@ -415,6 +434,9 @@
     const page = { orientation: $("page-orientation").value };
     for (const key of ["top", "right", "bottom", "left"]) page[key] = Number($(`margin-${key}`).value);
     return page;
+  }
+  function readDimensions() {
+    return { width: elements.width.valueAsNumber, height: elements.height.valueAsNumber };
   }
   function setPage(page) {
     $("page-orientation").value = page.orientation;
@@ -490,9 +512,10 @@
     if (!batch) return;
     syncBatch();
     if (imageLoading) { showMessage("Espera a que termine de cargar la imagen.", "notice"); return; }
-    const design = readDesign(), page = readPage(), size = Number(elements.size.value);
+    const design = readDesign(), page = readPage(), dimensions = readDimensions();
     if (design.backdrop.mode === "image" && !design.backdrop.image) { showMessage("Selecciona una imagen de fondo antes de exportar.", "error"); return; }
     if (!exporter.validPage(page)) { showMessage("Los márgenes deben ser números enteros entre 5 y 40 mm.", "error"); return; }
+    if (!engine.validDimensions(dimensions.width, dimensions.height)) { showMessage("El ancho y el alto deben ser números enteros entre 2 y 50.", "error"); return; }
     const directions = [...selections.wordsearch], items = structuredClone(batch.items);
     const includeSolution = $("export-solution").checked;
     if (!directions.length) { showMessage("Selecciona al menos una dirección para las sopas.", "error"); return; }
@@ -505,10 +528,11 @@
       for (const item of items) {
         title = item.title.trim() || "Pasatiempo";
         const { entries, errors } = engine.parseEntries(item.entries, "wordsearch");
-        const tooLong = entries.filter(entry => entry.word.length > size);
-        if (tooLong.length) errors.push(`No caben en la cuadrícula: ${tooLong.map(entry => entry.original).join(", ")}.`);
+        const tooLong = entries.filter(entry => !engine.directions.some(direction =>
+          directions.includes(direction.id) && engine.fits(entry.word, direction, dimensions.width, dimensions.height)));
+        if (tooLong.length) errors.push(`No caben en las direcciones seleccionadas: ${tooLong.map(entry => entry.original).join(", ")}.`);
         if (errors.length) throw new Error(errors.join(" "));
-        const puzzle = engine.wordsearch(entries, size, directions);
+        const puzzle = engine.wordsearch(entries, dimensions.width, directions, dimensions.height);
         if (puzzle.omitted.length) throw new Error(`No se pudieron colocar: ${puzzle.omitted.map(entry => entry.original).join(", ")}. Aumenta el tamaño o prueba otra vez.`);
         Object.assign(puzzle, { title, secondaryTitle: item.secondaryTitle.trim(), description: item.description.trim() });
         puzzles.push(puzzle);
@@ -573,8 +597,13 @@
     window.print();
   }
   document.querySelectorAll(".type-option").forEach(button => button.addEventListener("click", () => setType(button.dataset.type)));
-  [elements.title, elements.secondaryTitle, elements.description, elements.entries, elements.size].forEach(element => element.addEventListener("input", markDirty));
+  [elements.title, elements.secondaryTitle, elements.description, elements.entries, elements.width, elements.height].forEach(element => element.addEventListener("input", markDirty));
+  elements.fixedGrid.addEventListener("change", () => {
+    elements.width.disabled = elements.height.disabled = type === "crossword" && !elements.fixedGrid.checked;
+    markDirty();
+  });
   elements.entries.addEventListener("scroll", updateCount);
+  $("cell-size").addEventListener("change", () => { designState.cellSize = Number($("cell-size").value); applyDesign(); });
   $("design-target").addEventListener("change", updateDesignControls);
   $("design-override").addEventListener("change", () => {
     const target = $("design-target").value;
@@ -686,6 +715,7 @@
     $("import-dialog").close();
     markDirty();
   });
+  elements.width.disabled = elements.height.disabled = true;
   renderDirections();
   updateCount();
   generate();

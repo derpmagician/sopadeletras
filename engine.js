@@ -95,19 +95,36 @@
     return directions.filter(direction => ids.includes(direction.id));
   }
 
-  function crossword(entries, directionIds = defaults.crossword) {
+  function validDimensions(width, height) {
+    return [width, height].every(value => Number.isInteger(value) && value >= 2 && value <= 50);
+  }
+
+  function fits(word, direction, width, height) {
+    return (direction.dc === 0 || word.length <= width) && (direction.dr === 0 || word.length <= height);
+  }
+
+  function crossword(entries, directionIds = defaults.crossword, dimensions) {
     const allowed = selectedDirections(directionIds);
-    const width = 51;
+    if (dimensions && !validDimensions(dimensions.width, dimensions.height)) throw new Error("El ancho y el alto deben ser enteros entre 2 y 50.");
+    const width = dimensions ? dimensions.width + 2 : 51;
+    const height = dimensions ? dimensions.height + 2 : 51;
     let best = null;
     for (let attempt = 0; attempt < 30; attempt++) {
-      const grid = Array.from({ length: width }, () => Array(width).fill(null));
+      const grid = Array.from({ length: height }, () => Array(width).fill(null));
       const placed = [];
       const ordered = shuffle(entries).sort((a, b) => b.word.length - a.word.length);
-      const first = ordered.shift();
-      const firstDirection = allowed[Math.floor(Math.random() * allowed.length)];
-      const offset = Math.floor((first.word.length - 1) / 2);
-      const firstRow = 25 - firstDirection.dr * offset;
-      const firstCol = 25 - firstDirection.dc * offset;
+      const firstIndex = ordered.findIndex(entry => allowed.some(direction => fits(entry.word, direction, width - 2, height - 2)));
+      if (firstIndex < 0) return { grid: Array.from({ length: height - 2 }, () => Array(width - 2).fill(null)), placed: [], omitted: ordered, type: "crossword" };
+      const [first] = ordered.splice(firstIndex, 1);
+      const firstDirections = allowed.filter(direction => fits(first.word, direction, width - 2, height - 2));
+      const firstDirection = firstDirections[Math.floor(Math.random() * firstDirections.length)];
+      const start = (length, delta) => {
+        const span = delta ? first.word.length - 1 : 0;
+        const low = 1 + Math.floor((length - 2 - 1 - span) / 2);
+        return delta < 0 ? low + span : low;
+      };
+      const firstRow = start(height, firstDirection.dr);
+      const firstCol = start(width, firstDirection.dc);
       for (let i = 0; i < first.word.length; i++) grid[firstRow + i * firstDirection.dr][firstCol + i * firstDirection.dc] = first.word[i];
       placed.push({ ...first, row: firstRow, col: firstCol, direction: firstDirection.id, dr: firstDirection.dr, dc: firstDirection.dc });
       let remaining = ordered;
@@ -117,7 +134,7 @@
         const next = [];
         for (const entry of remaining) {
           const candidates = [];
-          for (let row = 1; row < width - 1; row++) for (let col = 1; col < width - 1; col++) {
+          for (let row = 1; row < height - 1; row++) for (let col = 1; col < width - 1; col++) {
             if (!grid[row][col]) continue;
             for (let i = 0; i < entry.word.length; i++) {
               if (grid[row][col] !== entry.word[i]) continue;
@@ -125,7 +142,9 @@
                 const { dr, dc } = direction;
                 const r = row - i * dr, c = col - i * dc;
                 const endR = r + (entry.word.length - 1) * dr, endC = c + (entry.word.length - 1) * dc;
-                if (Math.min(r, endR, c, endC) < 1 || Math.max(r, endR, c, endC) >= width - 1 || grid[r - dr][c - dc] || grid[endR + dr][endC + dc]) continue;
+                if (Math.min(r, endR) < 1 || Math.max(r, endR) >= height - 1 ||
+                    Math.min(c, endC) < 1 || Math.max(c, endC) >= width - 1 ||
+                    grid[r - dr][c - dc] || grid[endR + dr][endC + dc]) continue;
                 let crossings = 0, valid = true;
                 for (let j = 0; j < entry.word.length; j++) {
                   const rr = r + j * dr, cc = c + j * dc, current = grid[rr][cc];
@@ -154,8 +173,9 @@
     }
     const rows = best.placed.flatMap(p => [p.row, p.row + p.dr * (p.word.length - 1)]);
     const cols = best.placed.flatMap(p => [p.col, p.col + p.dc * (p.word.length - 1)]);
-    const minRow = Math.min(...rows), minCol = Math.min(...cols);
-    best.grid = best.grid.slice(minRow, Math.max(...rows) + 1).map(row => row.slice(minCol, Math.max(...cols) + 1));
+    const minRow = dimensions ? 1 : Math.min(...rows), minCol = dimensions ? 1 : Math.min(...cols);
+    best.grid = best.grid.slice(minRow, dimensions ? height - 1 : Math.max(...rows) + 1)
+      .map(row => row.slice(minCol, dimensions ? width - 1 : Math.max(...cols) + 1));
     best.placed.forEach(p => { p.row -= minRow; p.col -= minCol; });
     const starts = [...new Set(best.placed.map(p => `${p.row},${p.col}`))]
       .map(value => value.split(",").map(Number)).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
@@ -163,18 +183,19 @@
     return { ...best, type: "crossword" };
   }
 
-  function wordsearch(entries, size, directionIds = defaults.wordsearch) {
+  function wordsearch(entries, width, directionIds = defaults.wordsearch, height = width) {
     const allowed = selectedDirections(directionIds);
+    if (!validDimensions(width, height)) throw new Error("El ancho y el alto deben ser enteros entre 2 y 50.");
     let best = null;
     for (let attempt = 0; attempt < 20; attempt++) {
-      const grid = Array.from({ length: size }, () => Array(size).fill(null));
+      const grid = Array.from({ length: height }, () => Array(width).fill(null));
       const placed = [], omitted = [];
       const ordered = shuffle(entries).sort((a, b) => b.word.length - a.word.length);
       for (const entry of ordered) {
         const candidates = [];
-        for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) for (const { id, dr, dc } of allowed) {
+        for (let row = 0; row < height; row++) for (let col = 0; col < width; col++) for (const { id, dr, dc } of allowed) {
           const endRow = row + dr * (entry.word.length - 1), endCol = col + dc * (entry.word.length - 1);
-          if (endRow < 0 || endRow >= size || endCol < 0 || endCol >= size) continue;
+          if (endRow < 0 || endRow >= height || endCol < 0 || endCol >= width) continue;
           if ([...entry.word].every((letter, i) => !grid[row + dr * i][col + dc * i] || grid[row + dr * i][col + dc * i] === letter)) candidates.push({ row, col, dr, dc, direction: id });
         }
         if (!candidates.length) { omitted.push(entry); continue; }
@@ -189,5 +210,5 @@
     best.grid.forEach(row => row.forEach((cell, i) => { if (!cell) row[i] = alphabet[Math.floor(Math.random() * alphabet.length)]; }));
     return { ...best, type: "wordsearch" };
   }
-  return { normalize, parseEntries, parseWordsearchBatch, crossword, wordsearch, directions, defaults };
+  return { normalize, parseEntries, parseWordsearchBatch, crossword, wordsearch, directions, defaults, validDimensions, fits };
 });

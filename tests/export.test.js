@@ -60,6 +60,21 @@ test("genera páginas y contornos independientes con texto separado", () => {
   assert.equal((pages.pages[1].svg.match(/<g transform=/g) || []).length, 2);
 });
 
+test("aplica el tamaño elegido a las casillas en SVG y web interactiva", () => {
+  const crossword = { ...puzzle, type: "crossword" };
+  const small = exporter.svgPages(crossword, { ...design, cellSize: 12 }, exporter.defaultPage, false, measure);
+  const large = exporter.svgPages(crossword, { ...design, cellSize: 36 }, exporter.defaultPage, false, measure);
+  assert.match(small.pages[0].graphics, /width="12" height="12" fill="#fffefa"/);
+  assert.match(large.pages[0].graphics, /width="36" height="36" fill="#fffefa"/);
+  const wide = { ...crossword, grid: Array.from({ length: 3 }, () => Array(50).fill("A")) };
+  const fitted = exporter.svgPages(wide, { ...design, cellSize: 60 }, exporter.defaultPage, false, measure);
+  const width = Number(/width="([\d.]+)" height="\1" fill="#fffefa"/.exec(fitted.pages[0].graphics)[1]);
+  assert.ok(width < 60 && width >= 5);
+  const html = interactive.create(puzzle, exporter.directionNames, { ...design, cellSize: 36 });
+  assert.match(html, /"cellSize":36/);
+  assert.match(html, /puzzle\.grid\[0\]\.length \* puzzle\.design\.cellSize/);
+});
+
 test("mantiene cada línea de los títulos como texto continuo en PDF", () => {
   const pages = exporter.svgPages(puzzle, design, exporter.defaultPage, true, measure);
   for (const page of pages.pages) {
